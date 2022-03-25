@@ -22,15 +22,15 @@ module.exports = {
   defaultNetwork: "hardhat",
   networks: {
     hardhat: {
-      accounts: [{
-        privateKey: PRIVATE_KEY,
-        balance: String(10*1000000000000000000)
-      }]
+      // accounts: [{
+      //   privateKey: PRIVATE_KEY,
+      //   balance: String(10*1000000000000000000)
+      // }]
     },
-    rinkeby: {
-      url: "https://rinkeby.infura.io/v3/985b91f68c354499a922a0aa99bbd076",
-      accounts: [`0x${PRIVATE_KEY}`]
-    }
+    // rinkeby: {
+    //   url: "https://rinkeby.infura.io/v3/985b91f68c354499a922a0aa99bbd076",
+    //   accounts: [`0x${PRIVATE_KEY}`]
+    // }
   },
   solidity: "0.8.4"
 };
