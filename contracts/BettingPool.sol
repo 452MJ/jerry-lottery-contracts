@@ -13,12 +13,13 @@ contract BettingPool is RandomGenerator {
     }
 
     /* State variables */
-    uint private constant MINIMUM_BETTING_AMOUNT = 0.1 ether; // 0.1 ETH
-    mapping(address => uint256) private  ownerBonusAmount;
-    address[] private stakers;
-    Status private lotteryStatus = Status.OPEN;
-    uint private nextDrawingTime = block.timestamp + 1 hours;
-    uint256 private luckyNumber;
+    uint public constant MINIMUM_BETTING_AMOUNT = 0.1 ether; // 0.1 ETH
+    mapping(address => uint256) public  ownerBonusAmount;
+    address[] public stakers;
+    Status public lotteryStatus = Status.OPEN;
+    uint public nextDrawingTime = block.timestamp + 1 hours;
+    uint256 public luckyNumber;
+    uint256 public random;
 
     /* Events */
     event AddBettingSuccess(address _from, uint amount);
@@ -55,6 +56,11 @@ contract BettingPool is RandomGenerator {
         uint balance = address(this).balance;
         address winner = stakers[luckyNumber];
         payable(winner).transfer(balance);
+
+        for (uint256 i; i < stakers.length; i++) {
+            delete ownerBonusAmount[stakers[i]];
+        }
+        stakers = new address[](0);
         emit RewardingBonusSuccess(winner, balance);
         setStatus(Status.OPEN);
     }
@@ -67,9 +73,8 @@ contract BettingPool is RandomGenerator {
     {
         require(lotteryStatus == Status.OPEN);
         require(stakers.length >= 0);
-        setStatus(Status.CALCULATING);
-        luckyNumber = getRandomNumber();
-        luckyNumber = luckyNumber % stakers.length;
+        random = getRandomNumber();
+        luckyNumber = random % stakers.length;
         setStatus(Status.PENDING);
     }
 
@@ -84,15 +89,6 @@ contract BettingPool is RandomGenerator {
 
     /* Getter Functions */
 
-    //获取幸运号码
-    function getLuckyNumber()
-    public
-    view
-    returns (uint256)
-    {
-        return luckyNumber;
-    }
-
     //总投注金额
     function getTotalBonus()
     public
@@ -103,14 +99,6 @@ contract BettingPool is RandomGenerator {
             total += ownerBonusAmount[stakers[i]];
         }
         return total;
-    }
-
-    //查询投注金额
-    function getBonus(address _address)
-    public
-    view
-    returns (uint256) {
-        return ownerBonusAmount[_address];
     }
 
 }
