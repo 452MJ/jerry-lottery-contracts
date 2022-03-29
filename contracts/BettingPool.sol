@@ -15,7 +15,7 @@ contract BettingPool is RandomGenerator {
     /* State variables */
     uint private constant MINIMUM_BETTING_AMOUNT = 0.1 ether; // 0.1 ETH
     mapping(address => uint256) private  ownerBonusAmount;
-    address[] private addresses;
+    address[] private stakers;
     Status private lotteryStatus = Status.OPEN;
     uint private nextDrawingTime = block.timestamp + 1 hours;
     uint256 private luckyNumber;
@@ -34,14 +34,14 @@ contract BettingPool is RandomGenerator {
     public
     payable
     {
-        //检查金额是否＞=0.1ETH
+        //检查金额是否＞=最小投注ETH
         require(msg.value >= MINIMUM_BETTING_AMOUNT);
         //检查是否参与过本轮抽奖
         require(ownerBonusAmount[msg.sender] <= 0);
         //登记投注金额
         ownerBonusAmount[msg.sender] = msg.value;
         //登记投注人
-        addresses.push(msg.sender);
+        stakers.push(msg.sender);
         emit AddBettingSuccess(msg.sender, msg.value);
     }
 
@@ -51,10 +51,12 @@ contract BettingPool is RandomGenerator {
     payable
     onlyOwner
     {
+        require(lotteryStatus == Status.PENDING);
         uint balance = address(this).balance;
-        address  winner = addresses[luckyNumber];
+        address winner = stakers[luckyNumber];
         payable(winner).transfer(balance);
-        emit AddBettingSuccess(msg.sender, balance);
+        emit RewardingBonusSuccess(winner, balance);
+        setStatus(Status.OPEN);
     }
 
 
@@ -64,11 +66,11 @@ contract BettingPool is RandomGenerator {
     onlyOwner
     {
         require(lotteryStatus == Status.OPEN);
-        require(addresses.length >= 0);
+        require(stakers.length >= 0);
         setStatus(Status.CALCULATING);
         luckyNumber = getRandomNumber();
-        luckyNumber = luckyNumber % addresses.length;
-        setStatus(Status.OPEN);
+        luckyNumber = luckyNumber % stakers.length;
+        setStatus(Status.PENDING);
     }
 
 
@@ -97,8 +99,8 @@ contract BettingPool is RandomGenerator {
     view
     returns (uint256) {
         uint256 total = 0;
-        for (uint256 i; i < addresses.length; i++) {
-            total += ownerBonusAmount[addresses[i]];
+        for (uint256 i; i < stakers.length; i++) {
+            total += ownerBonusAmount[stakers[i]];
         }
         return total;
     }
