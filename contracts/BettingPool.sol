@@ -8,7 +8,6 @@ contract BettingPool is RandomGenerator {
     /* Type declarations */
     enum Status {
         OPEN,
-        CALCULATING,
         PENDING
     }
 
