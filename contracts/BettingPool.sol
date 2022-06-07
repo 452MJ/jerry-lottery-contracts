@@ -1,10 +1,13 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@chainlink/contracts/src/v0.6/interfaces/AggregatorV3Interface.sol";
+import "@chainlink/contracts/src/v0.6/ChainlinkClient.sol";
 import "./RandomGenerator.sol";
 
 
-contract BettingPool is RandomGenerator {
+contract BettingPool is ChainlinkClient, Ownable, RandomGenerator {
     /* Type declarations */
     enum Status {
         OPEN,
@@ -12,6 +15,9 @@ contract BettingPool is RandomGenerator {
     }
 
     /* State variables */
+    string public name = "Jerry Token Farm";
+    IERC20 public dappToken;
+
     uint public constant MINIMUM_BETTING_AMOUNT = 0.1 ether; // 0.1 ETH
     mapping(address => uint256) public  ownerBonusAmount;
     address[] public stakers;
@@ -19,6 +25,11 @@ contract BettingPool is RandomGenerator {
     uint public nextDrawingTime = block.timestamp + 1 hours;
     uint256 public luckyNumber;
     uint256 public random;
+    // token > address
+    mapping(address => mapping(address => uint256)) public stakingBalance;
+    mapping(address => uint256) public uniqueTokensStaked;
+    mapping(address => address) public tokenPriceFeedMapping;
+    address[] allowedTokens;
 
     /* Events */
     event AddBettingSuccess(address _from, uint amount);
@@ -26,9 +37,12 @@ contract BettingPool is RandomGenerator {
     event StatusChanged(Status status);
     /* Functions */
 
-    constructor() public Ownable(){
+    constructor(address _dappTokenAddress) public Ownable(){
+        address jerryToken =  0x47c4748474f61b4afaa88d5225177fc861d37155;
+        dappToken = IERC20(jerryToken);
     }
 
+    /**抽奖相关**/
     //投注
     function addBonus()
     public
@@ -78,6 +92,7 @@ contract BettingPool is RandomGenerator {
     }
 
 
+    //修改状态
     function setStatus(Status _status)
     private
     onlyOwner
@@ -86,7 +101,60 @@ contract BettingPool is RandomGenerator {
         emit StatusChanged(_status);
     }
 
+    /**Token Farm相关**/
+    //设定代币币价预言机投喂合约
+    function setPriceFeedContract(address token, address priceFeed)
+    public
+    onlyOwner
+    {
+        tokenPriceFeedMapping[token] = priceFeed;
+    }
+
+    //质押代币
+    function stakeTokens(uint256 _amount, address token) public {
+        // Require amount greater than 0
+        require(_amount > 0, "amount cannot be 0");
+        if (tokenIsAllowed(token)) {
+            updateUniqueTokensStaked(msg.sender, token);
+            IERC20(token).transferFrom(msg.sender, address(this), _amount);
+            stakingBalance[token][msg.sender] =
+            stakingBalance[token][msg.sender] +
+            _amount;
+            if (uniqueTokensStaked[msg.sender] == 1) {
+                stakers.push(msg.sender);
+            }
+        }
+    }
+
+
+    //提现代币
+    function unstakeTokens(address token) public {
+        // Fetch staking balance
+        uint256 balance = stakingBalance[token][msg.sender];
+        require(balance > 0, "staking balance cannot be 0");
+        IERC20(token).transfer(msg.sender, balance);
+        stakingBalance[token][msg.sender] = 0;
+        uniqueTokensStaked[msg.sender] = uniqueTokensStaked[msg.sender] - 1;
+    }
+
+
+    function getTokenEthPrice(address token) public view returns (uint256) {
+        address priceFeedAddress = tokenPriceFeedMapping[token];
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(
+            priceFeedAddress
+        );
+        (
+        uint80 roundID,
+        int256 price,
+        uint256 startedAt,
+        uint256 timeStamp,
+        uint80 answeredInRound
+        ) = priceFeed.latestRoundData();
+        return uint256(price);
+    }
+
     /* Getter Functions */
+
 
     //总投注金额
     function getTotalBonus()
